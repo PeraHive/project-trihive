@@ -12,6 +12,9 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/shadow/launch', [
         'launch/shadow.launch.py',
+        'launch/mavros.launch.py',
+        'launch/simulator.launch.py',
+
         ]),
     ],
     install_requires=['setuptools'],
