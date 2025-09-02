@@ -27,6 +27,8 @@ setup(
     entry_points={
         'console_scripts': [
               'shadow_leader = shadow.shadow_leader:main',
+              'shadow_follower = shadow.shadow_follower:main',
+
         ],
     },
 )

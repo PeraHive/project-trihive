@@ -66,16 +66,16 @@ class ShadowLeader(Node):
 
         # Follower relative offsets (from LEADER pose)
         # Left/right with respect to leader heading North: left is West (x -), right is East (x +)
-        self.uav2_off = (
-            float(self.declare_parameter('uav2_off_x', -5.0).get_parameter_value().double_value),
-            float(self.declare_parameter('uav2_off_y',  0.0).get_parameter_value().double_value),
-            float(self.declare_parameter('uav2_off_z',  0.0).get_parameter_value().double_value),
-        )
-        self.uav3_off = (
-            float(self.declare_parameter('uav3_off_x',  5.0).get_parameter_value().double_value),
-            float(self.declare_parameter('uav3_off_y',  0.0).get_parameter_value().double_value),
-            float(self.declare_parameter('uav3_off_z',  0.0).get_parameter_value().double_value),
-        )
+        # self.uav2_off = (
+        #     float(self.declare_parameter('uav2_off_x', -5.0).get_parameter_value().double_value),
+        #     float(self.declare_parameter('uav2_off_y',  0.0).get_parameter_value().double_value),
+        #     float(self.declare_parameter('uav2_off_z',  0.0).get_parameter_value().double_value),
+        # )
+        # self.uav3_off = (
+        #     float(self.declare_parameter('uav3_off_x',  5.0).get_parameter_value().double_value),
+        #     float(self.declare_parameter('uav3_off_y',  0.0).get_parameter_value().double_value),
+        #     float(self.declare_parameter('uav3_off_z',  0.0).get_parameter_value().double_value),
+        # )
 
         # Tolerances
         self.alt_air_thresh = float(self.declare_parameter('alt_air_thresh', 0.5).get_parameter_value().double_value)  # m
@@ -92,8 +92,8 @@ class ShadowLeader(Node):
         self.rel_alt3 = 0.0
 
         self.pose1 = PoseStamped()
-        self.pose2 = PoseStamped()
-        self.pose3 = PoseStamped()
+        # self.pose2 = PoseStamped()
+        # self.pose3 = PoseStamped()
 
         self.goal_pose = None  # type: Tuple[float, float, float]
         self.goal_yaw = None   # type: float
@@ -106,8 +106,8 @@ class ShadowLeader(Node):
 
 
         self.create_subscription(PoseStamped, f'{self.uav1_ns}/local_position/pose', self._pose1_cb, qos_sensor)
-        self.create_subscription(PoseStamped, f'{self.uav2_ns}/local_position/pose', self._pose2_cb, qos_sensor)
-        self.create_subscription(PoseStamped, f'{self.uav3_ns}/local_position/pose', self._pose3_cb, qos_sensor)
+        # self.create_subscription(PoseStamped, f'{self.uav2_ns}/local_position/pose', self._pose2_cb, qos_sensor)
+        # self.create_subscription(PoseStamped, f'{self.uav3_ns}/local_position/pose', self._pose3_cb, qos_sensor)
 
         # ---------------- Publishers ----------------
         # Use PositionTarget so we can command position + yaw together
@@ -128,7 +128,6 @@ class ShadowLeader(Node):
         self.state1 = msg
 
     def _alt1_cb(self, msg: Float64):
-        print(f'  rel_alt1={msg.data:.2f} m')  # debug
         self.rel_alt1 = float(msg.data)
 
     def _alt2_cb(self, msg: Float64):
@@ -140,11 +139,11 @@ class ShadowLeader(Node):
     def _pose1_cb(self, msg: PoseStamped):
         self.pose1 = msg
 
-    def _pose2_cb(self, msg: PoseStamped):
-        self.pose2 = msg
+    # def _pose2_cb(self, msg: PoseStamped):
+    #     self.pose2 = msg
 
-    def _pose3_cb(self, msg: PoseStamped):
-        self.pose3 = msg
+    # def _pose3_cb(self, msg: PoseStamped):
+    #     self.pose3 = msg
 
     # ---------------- Helpers -----------------
     def _set_mode(self, mode: str, timeout: float = 10.0) -> bool:
@@ -196,9 +195,9 @@ class ShadowLeader(Node):
         sp.yaw = yaw
         self.raw_sp_pub.publish(sp)
 
-    @staticmethod
-    def _dist2d(a: Tuple[float, float], b: Tuple[float, float]) -> float:
-        return math.hypot(a[0] - b[0], a[1] - b[1])
+    # @staticmethod
+    # def _dist2d(a: Tuple[float, float], b: Tuple[float, float]) -> float:
+    #     return math.hypot(a[0] - b[0], a[1] - b[1])
 
     def _pose_xyz_yaw(self, p: PoseStamped) -> Tuple[float, float, float, float]:
         # Extract yaw from quaternion
@@ -227,7 +226,7 @@ class ShadowLeader(Node):
                 self.get_logger().warn('Arming failed, retrying...')
             time.sleep(self.arm_retry_sec)
             rclpy.spin_once(self, timeout_sec=0.1)
-        self.get_logger().info('UAV1 is ARMED.')
+        self.get_logger().info('Leader is ARMED.')
 
         # 4) Takeoff
         if not self._takeoff(self.target_alt):
@@ -235,12 +234,10 @@ class ShadowLeader(Node):
             return
 
         # 5) Confirm airborne using relative altitude
-        self.get_logger().info('Waiting for UAV1 to be airborne via rel_alt...')
-        # while rclpy.ok() and self.rel_alt1 < max(1.0, min(self.target_alt - 1.0, self.alt_air_thresh)):
+        self.get_logger().info('Waiting for Leader to be airborne via rel_alt...')
         while rclpy.ok() and self.rel_alt1 < self.target_alt - self.alt_air_thresh:
             rclpy.spin_once(self, timeout_sec=0.2)
-            # time.sleep(0.2)
-        self.get_logger().info(f'UAV1 airborne: rel_alt={self.rel_alt1:.1f} m')
+        self.get_logger().info(f'Leader airborne: rel_alt={self.rel_alt1:.1f} m')
 
         # 6) Compute leader goal (relative from current pose)
         rclpy.spin_once(self, timeout_sec=0.2)
@@ -265,24 +262,26 @@ class ShadowLeader(Node):
         self.get_logger().info('Leader reached goal pose (within tolerance).')
 
         # 8) Wait for followers: airborne + positioned at offsets relative to leader
-        self.get_logger().info('Waiting for UAV2 & UAV3 to be airborne and in formation...')
+        self.get_logger().info('Waiting for Followers to be airborne and in formation...')
         while rclpy.ok():
             rclpy.spin_once(self, timeout_sec=0.0)
 
             # Airborne checks
-            air2 = self.rel_alt2 >= self.alt_air_thresh
-            air3 = self.rel_alt3 >= self.alt_air_thresh
+            air2 =  self.rel_alt2 > self.target_alt - self.alt_air_thresh
+            air3 =  self.rel_alt3 < self.target_alt - self.alt_air_thresh
 
             # Position checks relative to LEADER current pose
-            lx, ly, lz, _ = self._pose_xyz_yaw(self.pose1)
-            t2 = (lx + self.uav2_off[0], ly + self.uav2_off[1])
-            t3 = (lx + self.uav3_off[0], ly + self.uav3_off[1])
-            p2 = (self.pose2.pose.position.x, self.pose2.pose.position.y)
-            p3 = (self.pose3.pose.position.x, self.pose3.pose.position.y)
-            inpos2 = self._dist2d(p2, t2) <= self.pos_tol
-            inpos3 = self._dist2d(p3, t3) <= self.pos_tol
+            # lx, ly, lz, _ = self._pose_xyz_yaw(self.pose1)
+            # t2 = (lx + self.uav2_off[0], ly + self.uav2_off[1])
+            # t3 = (lx + self.uav3_off[0], ly + self.uav3_off[1])
+            # p2 = (self.pose2.pose.position.x, self.pose2.pose.position.y)
+            # p3 = (self.pose3.pose.position.x, self.pose3.pose.position.y)
+            # inpos2 = self._dist2d(p2, t2) <= self.pos_tol
+            # inpos3 = self._dist2d(p3, t3) <= self.pos_tol
 
-            if air2 and air3 and inpos2 and inpos3:
+            # if air2 and air3 and inpos2 and inpos3:
+            #     break
+            if air2:
                 break
 
             # Keep leader stable at goal while waiting
@@ -292,8 +291,8 @@ class ShadowLeader(Node):
         self.get_logger().info('Followers ready and in formation.')
 
         # 9) Switch to POSHOLD / POSCTL
-        self._set_mode(self.poshold_mode)
-        self.get_logger().info('Switched leader to position hold. Sequence complete.')
+        # self._set_mode(self.poshold_mode)
+        # self.get_logger().info('Switched leader to position hold. Sequence complete.')
 
 
 def main() -> None:
