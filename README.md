@@ -62,6 +62,11 @@ ros2 run shadow shadow_follower --ros-args -r __ns:=/follower_left     -p follow
 
 ## 📊 Visualization with Foxglove
 
+### Install Foxglove Bridge
+```bash
+sudo apt install ros-jazzy-foxglove-bridge
+```
+
 ### Launch Foxglove Bridge
 ```bash
 ros2 launch foxglove_bridge foxglove_bridge_launch.xml
