@@ -1,0 +1,360 @@
+{
+  "configById": {
+    "map!32ep4t": {
+      "zoomLevel": 20,
+      "center": {
+        "lat": 0,
+        "lon": 0
+      },
+      "customTileUrl": "",
+      "disabledTopics": [
+        "/uav3/global_position/raw/fix",
+        "/uav1/global_position/raw/fix",
+        "/uav2/global_position/raw/fix"
+      ],
+      "followTopic": "",
+      "layer": "satellite",
+      "topicColors": {
+        "/uav3/global_position/global": "#ff6161",
+        "/uav1/global_position/global": "#4e98e2",
+        "/uav2/global_position/global": "#ff7200",
+        "/uav2/global_position/raw/fix": "#5cd6a9"
+      },
+      "maxNativeZoom": 18,
+      "topicConfig": {
+        "/uav3/global_position/global": {
+          "color": "#ff6161",
+          "pointDisplayMode": "pin",
+          "historyMode": "all"
+        },
+        "/uav1/global_position/global": {
+          "color": "#4e98e2",
+          "pointDisplayMode": "dot",
+          "historyMode": "all"
+        },
+        "/uav2/global_position/global": {
+          "color": "#ff7200",
+          "pointDisplayMode": "dot",
+          "historyMode": "all"
+        },
+        "/uav2/global_position/raw/fix": {
+          "color": "#5cd6a9",
+          "pointDisplayMode": "dot",
+          "historyMode": "all"
+        },
+        "/uav3/global_position/raw/fix": {
+          "pointDisplayMode": "dot",
+          "historyMode": "all"
+        },
+        "/uav1/global_position/raw/fix": {
+          "pointDisplayMode": "dot",
+          "historyMode": "all"
+        }
+      }
+    },
+    "RawMessages!1uax1uk": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/uav1/state",
+      "fontSize": 12
+    },
+    "Gauge!n4df2p": {
+      "path": "/uav1/battery.percentage",
+      "minValue": 0,
+      "maxValue": 1,
+      "colorMap": "red-yellow-green",
+      "colorMode": "colormap",
+      "gradient": [
+        "#0000ff",
+        "#ff00ff"
+      ],
+      "reverse": false
+    },
+    "Indicator!1epud61": {
+      "path": "/uav1/state.connected",
+      "style": "bulb",
+      "fontSize": 18,
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "Disconnected",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#68e24a",
+          "label": "Connected"
+        }
+      ]
+    },
+    "Indicator!3cwlfyj": {
+      "path": "/uav1/state.armed",
+      "style": "background",
+      "fontSize": 18,
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "Unarmed",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#ff001a",
+          "label": "Armed"
+        }
+      ]
+    },
+    "RawMessages!109xx0w": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/uav2/state",
+      "fontSize": 12
+    },
+    "Gauge!1lathh1": {
+      "path": "/uav2/battery.percentage",
+      "minValue": 0,
+      "maxValue": 1,
+      "colorMap": "red-yellow-green",
+      "colorMode": "colormap",
+      "gradient": [
+        "#0000ff",
+        "#ff00ff"
+      ],
+      "reverse": false
+    },
+    "Indicator!24u06an": {
+      "path": "/uav2/state.connected",
+      "style": "bulb",
+      "fontSize": 18,
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "Disconnected",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#68e24a",
+          "label": "Connected"
+        }
+      ]
+    },
+    "Indicator!jyoeju": {
+      "path": "/uav2/state.armed",
+      "style": "background",
+      "fontSize": 18,
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "Unarmed",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#ff001a",
+          "label": "Armed"
+        }
+      ]
+    },
+    "RawMessages!483knky": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/uav3/state",
+      "fontSize": 12
+    },
+    "Gauge!38vkmgw": {
+      "path": "/uav3/battery.percentage",
+      "minValue": 0,
+      "maxValue": 1,
+      "colorMap": "red-yellow-green",
+      "colorMode": "colormap",
+      "gradient": [
+        "#0000ff",
+        "#ff00ff"
+      ],
+      "reverse": false
+    },
+    "Indicator!18hdgv8": {
+      "path": "/uav3/state.connected",
+      "style": "bulb",
+      "fontSize": 18,
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "Disconnected",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#68e24a",
+          "label": "Connected"
+        }
+      ]
+    },
+    "Indicator!2fn6qh2": {
+      "path": "/uav3/state.armed",
+      "style": "background",
+      "fontSize": 18,
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "Unarmed",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "true",
+          "color": "#ff001a",
+          "label": "Armed"
+        }
+      ]
+    },
+    "Tab!1jotkbz": {
+      "activeTabIdx": 0,
+      "tabs": [
+        {
+          "layout": "map!32ep4t",
+          "title": ""
+        }
+      ]
+    },
+    "CallService!3wnc753": {
+      "requestPayload": "{\n  \"base_mode\": 0,\n  \"custom_mode\": \"RTL\"\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 10,
+      "serviceName": "/uav1/set_mode"
+    },
+    "CallService!40rlf9r": {
+      "requestPayload": "{\n  \"base_mode\": 0,\n  \"custom_mode\": \"RTL\"\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 10,
+      "serviceName": "/uav2/set_mode"
+    },
+    "CallService!1jni36c": {
+      "requestPayload": "{\n  \"base_mode\": 0,\n  \"custom_mode\": \"RTL\"\n}",
+      "layout": "vertical",
+      "timeoutSeconds": 10,
+      "serviceName": "/uav3/set_mode"
+    },
+    "Plot!2qp5m79": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/uav1/local_position/pose.pose.position.z",
+          "enabled": true,
+          "color": "#4e98e2",
+          "label": "UAV1",
+          "showLine": false
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/uav2/local_position/pose.pose.position.z",
+          "enabled": true,
+          "color": "#f5774d",
+          "label": "UAV2",
+          "showLine": false
+        },
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/uav3/local_position/pose.pose.position.z",
+          "enabled": true,
+          "color": "#f7df71",
+          "label": "UAV3"
+        }
+      ],
+      "minYValue": -1,
+      "maxYValue": 30,
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": false,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    }
+  },
+  "globalVariables": {
+    "globalVariable": 3
+  },
+  "userNodes": {
+    "02110d86-cd33-418e-aff2-c76421416cb8": {
+      "sourceCode": "// The ./types module provides helper types for your Input events and messages.\nimport { Input, Message } from \"./types\";\n\n// Your script can output well-known message types, any of your custom message types, or\n// complete custom message types.\n//\n// Use `Message` to access types from the schemas defined in your data source:\n// type Twist = Message<\"geometry_msgs/Twist\">;\n//\n// Import from the @foxglove/schemas package to use foxglove schema types:\n// import { Pose, LocationFix } from \"@foxglove/schemas\";\n//\n// Conventionally, it's common to make a _type alias_ for your script's output type\n// and use that type name as the return type for your script function.\n// Here we've called the type `Output` but you can pick any type name.\ntype Output = {\n  hello: string;\n};\n\n// These are the topics your script \"subscribes\" to. Foxglove will invoke your script function\n// when any message is received on one of these topics.\nexport const inputs = [\"/input/topic\"];\n\n// Any output your script produces is \"published\" to this topic. Published messages are only visible within Foxglove, not to your original data source.\nexport const output = \"/foxglove_script/output_topic\";\n\n// This function is called with messages from your input topics.\n// The first argument is an event with the topic, receive time, and message.\n// Use the `Input<...>` helper to get the correct event type for your input topic messages.\nexport default function script(event: Input<\"/input/topic\">): Output {\n  return {\n    hello: \"world!\",\n  };\n};",
+      "name": "02110d86"
+    }
+  },
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "first": {
+      "direction": "row",
+      "first": {
+        "first": {
+          "first": {
+            "first": "RawMessages!1uax1uk",
+            "second": "Gauge!n4df2p",
+            "direction": "row",
+            "splitPercentage": 64.77863597354738
+          },
+          "second": {
+            "first": "Indicator!1epud61",
+            "second": "Indicator!3cwlfyj",
+            "direction": "row",
+            "splitPercentage": 49.1915417599232
+          },
+          "direction": "column",
+          "splitPercentage": 78.47222222222221
+        },
+        "second": {
+          "first": {
+            "first": {
+              "first": "RawMessages!109xx0w",
+              "second": "Gauge!1lathh1",
+              "direction": "row",
+              "splitPercentage": 64.77863597354738
+            },
+            "second": {
+              "first": "Indicator!24u06an",
+              "second": "Indicator!jyoeju",
+              "direction": "row"
+            },
+            "direction": "column",
+            "splitPercentage": 77.59234456506412
+          },
+          "second": {
+            "first": {
+              "first": "RawMessages!483knky",
+              "second": "Gauge!38vkmgw",
+              "direction": "row",
+              "splitPercentage": 62.55187036195669
+            },
+            "second": {
+              "first": "Indicator!18hdgv8",
+              "second": "Indicator!2fn6qh2",
+              "direction": "row"
+            },
+            "direction": "column",
+            "splitPercentage": 76.92307692307693
+          },
+          "direction": "column",
+          "splitPercentage": 48.30633284241534
+        },
+        "direction": "column",
+        "splitPercentage": 32.50497017892644
+      },
+      "second": "Tab!1jotkbz",
+      "splitPercentage": 56.03112840466926
+    },
+    "second": {
+      "first": {
+        "first": {
+          "first": "CallService!3wnc753",
+          "second": "CallService!40rlf9r",
+          "direction": "column"
+        },
+        "second": "CallService!1jni36c",
+        "direction": "column",
+        "splitPercentage": 67.77221530755295
+      },
+      "second": "Plot!2qp5m79",
+      "direction": "column",
+      "splitPercentage": 77.8183566793666
+    },
+    "direction": "row",
+    "splitPercentage": 84.46033810143044
+  }
+}
