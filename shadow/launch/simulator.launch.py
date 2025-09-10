@@ -60,7 +60,7 @@ def _setup(context, *args, **kwargs):
 
     for i in selected:
         ns = f'uav{i}'
-        port = base_port + (i - 1)
+        port = base_port + (i) # each UAV gets its own port
         fcu = f'udp://{bind_ip}:{port}@'   # listen (server) on this machine
         node = make_mavros_node(
             ns=ns,

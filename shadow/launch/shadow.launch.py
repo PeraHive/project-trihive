@@ -25,23 +25,23 @@ def generate_launch_description():
                 'follower_ns': '/uav2',
                 'leader_ns': '/uav1',
                 'side': 'right',
-                'slot_offset_m': 5.0,
+                'slot_offset_m': 3.0,
                 'target_alt': 5.0,
             }],
         ),
 
         # Follower uav3 (left side)
-        Node(
-            package='shadow',
-            executable='shadow_follower',
-            namespace='follower_left',
-            output='screen',
-            parameters=[{
-                'follower_ns': '/uav3',
-                'leader_ns': '/uav1',
-                'side': 'left',
-                'slot_offset_m': 5.0,
-                'target_alt': 5.0,
-            }],
-        ),
+        # Node(
+        #     package='shadow',
+        #     executable='shadow_follower',
+        #     namespace='follower_left',
+        #     output='screen',
+        #     parameters=[{
+        #         'follower_ns': '/uav3',
+        #         'leader_ns': '/uav1',
+        #         'side': 'left',
+        #         'slot_offset_m': 3.0,
+        #         'target_alt': 5.0,
+        #     }],
+        # ),
     ])

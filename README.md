@@ -101,7 +101,7 @@ colcon build && source install/setup.bash
 ros2 launch shadow mavros.launch.py uavs:="1,2"
 
 # Run simulator with 2 UAVs
-ros2 launch shadow simulator.launch.py uavs:=1,2 base_port:=14550 bind_ip:=0.0.0.0
+ros2 launch shadow simulator.launch.py uavs:="1,2" base_port:=14550 bind_ip:=127.0.0.1
 
 # Start the swarm control
 ros2 launch shadow shadow.launch.py
@@ -109,3 +109,40 @@ ros2 launch shadow shadow.launch.py
 # (Optional) View data in Foxglove
 ros2 launch foxglove_bridge foxglove_bridge_launch.xml
 ```
+
+## Run Simulation
+
+```
+source ~/Projects/swarm_drone/venv/bin/activate
+```
+
+### UAV1 (SYSID 1) → send to 14550 (GCS?) and 14551 (MAVROS uav1)
+```
+python3 ~/Projects/ardupilot_ws/Tools/autotest/sim_vehicle.py \
+  -v ArduCopter -I0 --sysid 1 \
+  --out=udp:127.0.0.1:14550 \
+  --out=udp:127.0.0.1:14551
+```
+
+### UAV2 (SYSID 2) → send to 14550 (GCS?) and 14551+1=14551? NO — use 14551 for uav1, so uav2 must use 14551+1=14552
+```
+python3 ~/Projects/ardupilot_ws/Tools/autotest/sim_vehicle.py \
+  -v ArduCopter -I1 --sysid 2 \
+  --out=udp:127.0.0.1:14550 \
+  --out=udp:127.0.0.1:14552
+```
+
+### UAV3 (SYSID 3) → send to 14550 (GCS?) and 14551+1=14551? NO — use 14551 for uav1, so uav2 must use 14551+1=14553
+```
+python3 ~/Projects/ardupilot_ws/Tools/autotest/sim_vehicle.py \
+  -v ArduCopter -I2 --sysid 3 \
+  --out=udp:127.0.0.1:14550 \
+  --out=udp:127.0.0.1:14553
+```
+
+
+
+
+
+
+

@@ -13,7 +13,7 @@ def make_mavros_node(ns, fcu_url, gcs_url, sys_id, tgt_sys_id):
             output='screen',
             parameters=[{
                 'fcu_url': fcu_url,
-                'gcs_url': gcs_url,
+                # 'gcs_url': gcs_url,
                 'system_id': sys_id,
                 'target_system_id': tgt_sys_id,
             }],
@@ -32,9 +32,9 @@ def set_ext_state_cmd(ns, rate_hz=1.0):
 
 # Edit this mapping for your ports/IDs
 UAV_CFG = {
-    1: dict(ns='uav1', fcu='serial:///dev/ttyUSB0:115200', gcs='udp://@192.168.184.157:14550', sys_id=255, tgt_id=1),
-    2: dict(ns='uav2', fcu='serial:///dev/ttyUSB0:115200', gcs='udp://@192.168.184.157:14550', sys_id=255, tgt_id=2),
-    3: dict(ns='uav3', fcu='serial:///dev/ttyUSB0:115200', gcs='udp://@192.168.184.157:14550', sys_id=255, tgt_id=3),
+    1: dict(ns='uav1', fcu='serial:///dev/ttyUSB0:115200', gcs='udp://@0.0.0.0:14550', sys_id=255, tgt_id=1),
+    2: dict(ns='uav2', fcu='serial:///dev/ttyUSB0:115200', gcs='udp://@0.0.0.0:14550', sys_id=255, tgt_id=2),
+    3: dict(ns='uav3', fcu='serial:///dev/ttyUSB0:115200', gcs='udp://@0.0.0.0:14550', sys_id=255, tgt_id=3),
 
     # 1: dict(ns='uav1', fcu='serial:///dev/ttyACM0:57600', gcs='udp://@0.0.0.0:14550', sys_id=255, tgt_id=1),
     # 2: dict(ns='uav2', fcu='serial:///dev/ttyACM1:57600', gcs='udp://@0.0.0.0:14551', sys_id=255, tgt_id=2),

@@ -321,28 +321,45 @@ class ShadowLeader(Node):
             time.sleep(dt)
         self.get_logger().info('Follower(s) ready.')
 
-          # _________________________________________________________________________________________ 
-        # TEST CODE (now rate-limited)
+        # _________________________________________________________________________________________ 
+        # 09. TEST CODE ( rate-limited) — with altitude change + robust forward move
         # _________________________________________________________________________________________ 
 
-        # 9a) rotate +90° in place at (gx, gy, gz)
-        # _, _, _, cyaw = self._pose_xyz_yaw(self.pose1)
-        # yaw1 = self._ang_norm(cyaw + math.pi/2.0)
-        # self.get_logger().info(f'Rotate to yaw1 = {math.degrees(yaw1):.1f}° (rate-limited)')
-        # self._goto_with_limits(gx, gy, gz, yaw1)
+        # Parameters
+        step_forward_m = 5.0     # how far to move forward
+        climb_delta_m  = 2.0     # climb amount before moving forward (set 0.0 to disable)
 
-        # 9b) move 5 m forward along yaw1 while holding yaw1
-        # step = 5.0
-        # nx = gx + math.cos(yaw1) * step
-        # ny = gy + math.sin(yaw1) * step
-        # self.get_logger().info(f'Move 5 m to ({nx:.2f}, {ny:.2f}, {gz:.2f}) (rate-limited)')
-        # self._goto_with_limits(nx, ny, gz, yaw1)
+        # 9a) Rotate +90° in place at (gx, gy, gz)
+        _, _, _, cyaw = self._pose_xyz_yaw(self.pose1)
+        yaw1 = self._ang_norm(cyaw + math.pi/2.0)
+        self.get_logger().info(f'Rotate to yaw1 = {math.degrees(yaw1):.1f}° (rate-limited)')
+        self._goto_with_limits(gx, gy, gz, yaw1)
 
-        # 9c) rotate +90° again at new spot
-        # yaw2 = self._ang_norm(yaw1 + math.pi/2.0)
-        # self.get_logger().info(f'Rotate to yaw2 = {math.degrees(yaw2):.1f}° (rate-limited)')
-        # self._goto_with_limits(nx, ny, gz, yaw2)
-        # _________________________________________________________________________________________ 
+        # ✨ Re-sample pose after the rotation settles (avoid using stale (gx,gy))
+        px, py, pz, pyaw = self._pose_xyz_yaw(self.pose1)
+
+        # 9a.1) Optional: climb before moving forward (holds yaw1)
+        target_alt = gz + climb_delta_m
+        self.get_logger().info(f'Climb to {target_alt:.2f} m (holding yaw)')
+        self._goto_with_limits(px, py, target_alt, yaw1)
+
+        # 9b) Move forward along yaw1 while holding yaw1 and the climbed altitude
+        # Use the *current* pose (px,py) as the base, not the previous goal.
+        nx = px + math.cos(yaw1) * step_forward_m   # ENU: x=East
+        ny = py + math.sin(yaw1) * step_forward_m   # ENU: y=North
+        self.get_logger().info(f'Move forward {step_forward_m:.1f} m to ({nx:.2f}, {ny:.2f}, {target_alt:.2f}) (rate-limited)')
+        self._goto_with_limits(nx, ny, target_alt, yaw1)
+
+        # 9b.1) Optional: descend back to original gz (still holding yaw1)
+        if abs(climb_delta_m) > 1e-3:
+            self.get_logger().info(f'Descend back to {gz:.2f} m (holding yaw)')
+            self._goto_with_limits(nx, ny, gz, yaw1)
+
+        # 9c) Rotate +90° again at the new spot
+        yaw2 = self._ang_norm(yaw1 + math.pi/2.0)
+        self.get_logger().info(f'Rotate to yaw2 = {math.degrees(yaw2):.1f}° (rate-limited)')
+        self._goto_with_limits(nx, ny, gz, yaw2)
+        # _________________________________________________________________________________________
 
         # 10) Switch to POSHOLD / POSCTL
         self._set_mode(self.poshold_mode)

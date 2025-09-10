@@ -29,6 +29,7 @@ QoS: matches MAVROS sensor topics (BEST_EFFORT / VOLATILE)
 
 import math
 from typing import Tuple
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -220,7 +221,8 @@ class ShadowFollower(Node):
             # If leader is in POSHOLD/POSCTL, we still keep streaming to hold the slot.
             # (Future: add logic to switch to POSCTL locally if needed.)
 
-            self.get_clock().sleep_for(rclpy.duration.Duration(seconds=dt))
+            # self.get_clock().sleep_for(rclpy.duration.Duration(seconds=dt))
+            # time.sleep(dt) 
 
 
 def main() -> None:
