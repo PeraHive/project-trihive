@@ -28,7 +28,7 @@ setup(
         'console_scripts': [
               'shadow_leader = shadow.shadow_leader:main',
               'shadow_follower = shadow.shadow_follower:main',
-
+              'mavlink_streams = shadow.mavlink_streams:main',
         ],
     },
 )

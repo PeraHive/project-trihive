@@ -1,106 +1,88 @@
 #!/usr/bin/env python3
 """
-Shadow Leader (no EXTENDED_SYS_STATE)
+Shadow Leader (streaming setpoints, no speed limits)
 
-Behavior
-- Arms and takes off UAV1 to target altitude in GUIDED (or OFFBOARD for PX4, configurable).
-- Flies UAV1 to a RELATIVE pose: 10 m to the North (default) from its current local pose
-  and yaws to face North.
-- Waits until UAV2 is airborne (simple rel_alt check while holding the goal).
-- Then performs: rotate in place (+90°) -> move 5 m forward -> rotate in place (+90°).
-- Switches UAV1 to POSHOLD (APM) / POSCTL (PX4) (configurable).
+- Arms and takes off to target_alt in GUIDED/OFFBOARD.
+- Flies to a relative goal (dx, dy, dz) from current pose and sets target_yaw.
+- Simple test sequence: rotate +90°, climb, move forward, descend, rotate +90°.
+- Ends in POSHOLD/POSCTL.
 
-Assumptions
-- MAVROS namespaces per UAV: /uav1, /uav2, /uav3.
-- Local frame is ENU: x=East, y=North, z=Up.
-- ArduPilot tends to ignore yaw in PoseStamped; we publish PositionTarget with yaw.
-
-Tested against: ROS 2 (Jazzy), mavros_msgs v2.* APIs.
+Params:
+  uav1_ns: '/uav1'
+  uav2_ns: '/uav2'
+  uav3_ns: '/uav3'
+  guided_mode: 'GUIDED' | 'OFFBOARD'
+  poshold_mode: 'POSHOLD' | 'POSCTL'
+  target_alt: 10.0
+  rel_dx: 0.0   (m, East+)
+  rel_dy: 10.0  (m, North+)
+  rel_dz: 0.0   (Up+; if 0, we hold target_alt)
+  target_yaw: pi/2 (face North)
+  sp_rate_hz: 12.0
+  pos_tol: 0.8 m
+  yaw_tol: 8 deg
 """
 
-import math
-import time
+import math, time
 from typing import Tuple
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
 
 from std_msgs.msg import Float64
 from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import State, PositionTarget
 from mavros_msgs.srv import CommandBool, CommandTOL, SetMode
 
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
-
 
 class ShadowLeader(Node):
     def __init__(self) -> None:
         super().__init__('shadow_leader')
-        # QoS to match MAVROS sensor publishers (BEST_EFFORT / VOLATILE)
+
         qos_sensor = QoSProfile(depth=10)
         qos_sensor.reliability = QoSReliabilityPolicy.BEST_EFFORT
         qos_sensor.durability  = QoSDurabilityPolicy.VOLATILE
 
         # ---------------- Parameters ----------------
-        # Namespaces
         self.uav1_ns = self.declare_parameter('uav1_ns', '/uav1').get_parameter_value().string_value
         self.uav2_ns = self.declare_parameter('uav2_ns', '/uav2').get_parameter_value().string_value
         self.uav3_ns = self.declare_parameter('uav3_ns', '/uav3').get_parameter_value().string_value
 
-        # Modes (ArduPilot: GUIDED/POSHOLD, PX4: OFFBOARD/POSCTL)
         self.guided_mode  = self.declare_parameter('guided_mode', 'GUIDED').get_parameter_value().string_value
         self.poshold_mode = self.declare_parameter('poshold_mode', 'POSHOLD').get_parameter_value().string_value
 
-        # Flight targets
         self.target_alt = float(self.declare_parameter('target_alt', 10.0).get_parameter_value().double_value)
         self.arm_retry_sec = float(self.declare_parameter('arm_retry_sec', 2.0).get_parameter_value().double_value)
 
-        # Leader relative move (from current local pose) — ENU
-        # 10 m North (y +10), maintain z, yaw to face North
-        self.rel_dx = float(self.declare_parameter('rel_dx', 0.0).get_parameter_value().double_value)   # East +
-        self.rel_dy = float(self.declare_parameter('rel_dy', 10.0).get_parameter_value().double_value)  # North +
-        self.rel_dz = float(self.declare_parameter('rel_dz', 0.0).get_parameter_value().double_value)   # Up +
+        self.rel_dx = float(self.declare_parameter('rel_dx', 0.0).get_parameter_value().double_value)
+        self.rel_dy = float(self.declare_parameter('rel_dy', 10.0).get_parameter_value().double_value)
+        self.rel_dz = float(self.declare_parameter('rel_dz', 0.0).get_parameter_value().double_value)
 
-        # Heading target (radians). Facing North in ENU is +90° = +pi/2.
         self.target_yaw = float(self.declare_parameter('target_yaw', math.pi/2).get_parameter_value().double_value)
 
-        # Tolerances
-        self.alt_air_thresh = float(self.declare_parameter('alt_air_thresh', 0.5).get_parameter_value().double_value)  # m
-        self.pos_tol = float(self.declare_parameter('pos_tol', 0.8).get_parameter_value().double_value)  # m
-        self.yaw_tol = float(self.declare_parameter('yaw_tol', math.radians(8.0)).get_parameter_value().double_value)  # rad
+        self.alt_air_thresh = float(self.declare_parameter('alt_air_thresh', 0.5).get_parameter_value().double_value)
+        self.pos_tol = float(self.declare_parameter('pos_tol', 0.8).get_parameter_value().double_value)
+        self.yaw_tol = float(self.declare_parameter('yaw_tol', math.radians(8.0)).get_parameter_value().double_value)
 
-        # Streams
-        self.sp_rate_hz = float(self.declare_parameter('sp_rate_hz', 10.0).get_parameter_value().double_value)
-
-        # Speed limits
-
-        self.max_lin_vel  = float(self.declare_parameter('max_lin_vel', 2).get_parameter_value().double_value)      # m/s
-        self.max_yaw_rate = float(self.declare_parameter('max_yaw_rate', math.radians(90.0)).get_parameter_value().double_value)  # rad/s
+        self.sp_rate_hz = float(self.declare_parameter('sp_rate_hz', 12.0).get_parameter_value().double_value)
 
         # ---------------- Internal State ----------------
         self.state1 = State()
         self.rel_alt1 = 0.0
         self.rel_alt2 = 0.0
         self.rel_alt3 = 0.0
-
         self.pose1 = PoseStamped()
 
-        self.goal_pose = None  # type: Tuple[float, float, float]
-        self.goal_yaw = None   # type: float
-
-        # ---------------- Subscriptions ----------------
+        # ---------------- I/O ----------------
         self.create_subscription(State, f'{self.uav1_ns}/state', self._state_cb, qos_sensor)
         self.create_subscription(Float64, f'{self.uav1_ns}/global_position/rel_alt', self._alt1_cb, qos_sensor)
         self.create_subscription(Float64, f'{self.uav2_ns}/global_position/rel_alt', self._alt2_cb, qos_sensor)
         self.create_subscription(Float64, f'{self.uav3_ns}/global_position/rel_alt', self._alt3_cb, qos_sensor)
-
         self.create_subscription(PoseStamped, f'{self.uav1_ns}/local_position/pose', self._pose1_cb, qos_sensor)
 
-        # ---------------- Publishers ----------------
-        # Use PositionTarget so we can command position + yaw together
-        self.raw_sp_pub = self.create_publisher(PositionTarget, f'{self.uav1_ns}/setpoint_raw/local', qos_sensor)
+        self.raw_sp_pub = self.create_publisher(PositionTarget, f'{self.uav1_ns}/setpoint_raw/local', 10)
 
-        # ---------------- Services ----------------
         self.arm_cli     = self.create_client(CommandBool, f'{self.uav1_ns}/cmd/arming')
         self.tko_cli     = self.create_client(CommandTOL,  f'{self.uav1_ns}/cmd/takeoff')
         self.setmode_cli = self.create_client(SetMode,     f'{self.uav1_ns}/set_mode')
@@ -111,26 +93,15 @@ class ShadowLeader(Node):
         self.get_logger().info('MAVROS services are available.')
 
     # ---------------- Callbacks ----------------
-    def _state_cb(self, msg: State):
-        self.state1 = msg
+    def _state_cb(self, msg: State): self.state1 = msg
+    def _alt1_cb(self, msg: Float64): self.rel_alt1 = float(msg.data)
+    def _alt2_cb(self, msg: Float64): self.rel_alt2 = float(msg.data)
+    def _alt3_cb(self, msg: Float64): self.rel_alt3 = float(msg.data)
+    def _pose1_cb(self, msg: PoseStamped): self.pose1 = msg
 
-    def _alt1_cb(self, msg: Float64):
-        self.rel_alt1 = float(msg.data)
-
-    def _alt2_cb(self, msg: Float64):
-        self.rel_alt2 = float(msg.data)
-
-    def _alt3_cb(self, msg: Float64):
-        self.rel_alt3 = float(msg.data)
-
-    def _pose1_cb(self, msg: PoseStamped):
-        self.pose1 = msg
-
-    # ---------------- Helpers -----------------
+    # ---------------- Helpers ----------------
     def _set_mode(self, mode: str, timeout: float = 10.0) -> bool:
-        req = SetMode.Request()
-        req.base_mode = 0
-        req.custom_mode = mode
+        req = SetMode.Request(); req.base_mode=0; req.custom_mode=mode
         fut = self.setmode_cli.call_async(req)
         rclpy.spin_until_future_complete(self, fut, timeout_sec=timeout)
         ok = bool(fut.done() and fut.result() and getattr(fut.result(), 'mode_sent', False))
@@ -138,8 +109,7 @@ class ShadowLeader(Node):
         return ok
 
     def _arm_once(self, timeout: float = 10.0) -> bool:
-        req = CommandBool.Request()
-        req.value = True
+        req = CommandBool.Request(); req.value=True
         fut = self.arm_cli.call_async(req)
         rclpy.spin_until_future_complete(self, fut, timeout_sec=timeout)
         ok = bool(fut.done() and fut.result() and getattr(fut.result(), 'success', False))
@@ -148,223 +118,149 @@ class ShadowLeader(Node):
 
     def _takeoff(self, alt: float = 10.0, timeout: float = 10.0) -> bool:
         req = CommandTOL.Request()
-        req.altitude = float(alt)
-        req.latitude = 0.0
-        req.longitude = 0.0
-        req.min_pitch = 0.0
-        req.yaw = float('nan')  # let FCU decide initially
+        req.altitude=float(alt); req.latitude=0.0; req.longitude=0.0; req.min_pitch=0.0; req.yaw=float('nan')
         fut = self.tko_cli.call_async(req)
         rclpy.spin_until_future_complete(self, fut, timeout_sec=timeout)
         ok = bool(fut.done() and fut.result() and getattr(fut.result(), 'success', False))
         self.get_logger().info(f"Takeoff({alt} m) -> {ok}")
         return ok
 
+    @staticmethod
+    def _ang_norm(a: float) -> float:
+        return (a + math.pi) % (2.0*math.pi) - math.pi
+
+    def _pose_xyz_yaw(self, p: PoseStamped) -> Tuple[float, float, float, float]:
+        q = p.pose.orientation
+        siny_cosp = 2.0 * (q.w*q.z + q.x*q.y)
+        cosy_cosp = 1.0 - 2.0 * (q.y*q.y + q.z*q.z)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
+        return p.pose.position.x, p.pose.position.y, p.pose.position.z, yaw
+
     def _publish_position_target(self, x: float, y: float, z: float, yaw: float) -> None:
-        """Publish a PositionTarget with position (x,y,z) and yaw in ENU."""
         sp = PositionTarget()
         sp.header.stamp = self.get_clock().now().to_msg()
-        sp.coordinate_frame = PositionTarget.FRAME_LOCAL_NED  # MAVROS converts; ENU->NED handled internally
-        # Use only POSITION + YAW (ignore velocities/accels)
+        sp.coordinate_frame = PositionTarget.FRAME_LOCAL_NED
         sp.type_mask = (
             PositionTarget.IGNORE_VX | PositionTarget.IGNORE_VY | PositionTarget.IGNORE_VZ |
             PositionTarget.IGNORE_AFX | PositionTarget.IGNORE_AFY | PositionTarget.IGNORE_AFZ |
             PositionTarget.IGNORE_YAW_RATE
         )
-        sp.position.x = x
-        sp.position.y = y
-        sp.position.z = z
+        sp.position.x = x; sp.position.y = y; sp.position.z = z
         sp.yaw = yaw
         self.raw_sp_pub.publish(sp)
 
-    @staticmethod
-    def _ang_norm(a: float) -> float:
-        return (a + math.pi) % (2.0 * math.pi) - math.pi
-
-    def _pose_xyz_yaw(self, p: PoseStamped) -> Tuple[float, float, float, float]:
-        # Extract yaw from quaternion (ENU)
-        q = p.pose.orientation
-        siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
-        cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
-        yaw = math.atan2(siny_cosp, cosy_cosp)
-        return p.pose.position.x, p.pose.position.y, p.pose.position.z, yaw
-
-    def _yaw_slew(self, target_yaw: float, hold_x: float, hold_y: float, hold_z: float, dt: float) -> None:
-        """Hold current position while rotating to target_yaw."""
-        while rclpy.ok():
-            rclpy.spin_once(self, timeout_sec=0.0)
-            _, _, _, cyaw = self._pose_xyz_yaw(self.pose1)
-            if abs(self._ang_norm(target_yaw - cyaw)) <= self.yaw_tol:
-                break
-            self._publish_position_target(hold_x, hold_y, hold_z, target_yaw)
-            time.sleep(dt)
-
-    # --------- NEW: unified, rate-limited mover ----------
-    def _goto_with_limits(self, tx: float, ty: float, tz: float, tyaw: float) -> None:
-        """
-        Stream intermediate setpoints so motion never exceeds:
-          - self.max_lin_vel (m/s) for linear motion
-          - self.max_yaw_rate (rad/s) for yaw
-        Exits when within pos/yaw tolerances.
-        """
-        dt = 1.0 / max(1e-3, self.sp_rate_hz)
-        while rclpy.ok():
-            rclpy.spin_once(self, timeout_sec=0.0)
-
-            cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
-
-            # position step
-            dx, dy, dz = (tx - cx), (ty - cy), (tz - cz)
-            dist = math.sqrt(dx*dx + dy*dy + dz*dz)
-            done_pos = dist <= self.pos_tol
-
-            if not done_pos:
-                max_step = self.max_lin_vel * dt
-                if dist > max_step:
-                    scale = max_step / dist
-                    nx = cx + dx * scale
-                    ny = cy + dy * scale
-                    nz = cz + dz * scale
-                else:
-                    nx, ny, nz = tx, ty, tz
-            else:
-                nx, ny, nz = tx, ty, tz
-
-            # yaw step
-            dyaw = self._ang_norm(tyaw - cyaw)
-            done_yaw = abs(dyaw) <= self.yaw_tol
-            if not done_yaw:
-                max_yaw_step = self.max_yaw_rate * dt
-                step_yaw = max(-max_yaw_step, min(max_yaw_step, dyaw))
-                nyaw = self._ang_norm(cyaw + step_yaw)
-            else:
-                nyaw = tyaw
-
-            self._publish_position_target(nx, ny, nz, nyaw)
-
-            if done_pos and done_yaw:
-                break
-
-            time.sleep(dt)
-
-    # ---------------- Mission -----------------
+    # ---------------- Mission ----------------
     def run(self) -> None:
-        # 1) Wait FCU connection
+        # 1) FCU
         while rclpy.ok() and not self.state1.connected:
             self.get_logger().info('Waiting for FCU connection...')
             rclpy.spin_once(self, timeout_sec=0.2)
-            time.sleep(0.2)
 
-        # 2) Enter GUIDED / OFFBOARD
+        # 2) GUIDED/OFFBOARD
         self._set_mode(self.guided_mode)
-        time.sleep(1.0)
 
-        # 3) Arm loop
+        # 3) Arm
         while rclpy.ok() and not self.state1.armed:
             if not self._arm_once():
                 self.get_logger().warn('Arming failed, retrying...')
-            time.sleep(self.arm_retry_sec)
             rclpy.spin_once(self, timeout_sec=0.1)
-        self.get_logger().info('Leader is ARMED.')
+            time.sleep(self.arm_retry_sec)
 
         # 4) Takeoff
         if not self._takeoff(self.target_alt):
-            self.get_logger().error('Takeoff command failed; aborting.')
+            self.get_logger().error('Takeoff failed; aborting.')
             return
 
-        # 5) Confirm airborne using relative altitude
-        self.get_logger().info('Waiting for Leader to be airborne via rel_alt...')
-        while rclpy.ok() and self.rel_alt1 < self.target_alt - self.alt_air_thresh:
+        # 5) Airborne check
+        while rclpy.ok() and self.rel_alt1 < (self.target_alt - self.alt_air_thresh):
             rclpy.spin_once(self, timeout_sec=0.2)
         self.get_logger().info(f'Leader airborne: rel_alt={self.rel_alt1:.1f} m')
 
-        # 6) Compute leader goal (relative from current pose)
+        # 6) Compute initial goal relative to current pose
         rclpy.spin_once(self, timeout_sec=0.2)
         x0, y0, z0, _ = self._pose_xyz_yaw(self.pose1)
         gx = x0 + self.rel_dx
         gy = y0 + self.rel_dy
-        gz = z0 + self.rel_dz if abs(self.rel_dz) > 1e-3 else self.target_alt
-        self.goal_pose = (gx, gy, gz)
-        self.goal_yaw = self.target_yaw
-        self.get_logger().info(f'Leader goal -> x:{gx:.2f} y:{gy:.2f} z:{gz:.2f} yaw:{math.degrees(self.goal_yaw):.1f}°')
+        gz = (z0 + self.rel_dz) if abs(self.rel_dz) > 1e-3 else self.target_alt
+        gyaw = self.target_yaw
+        self.get_logger().info(f'Initial goal -> ({gx:.2f},{gy:.2f},{gz:.2f}), yaw={math.degrees(gyaw):.1f}°')
 
-        # 7) Stream position+yaw setpoints until within tolerance
+        # 7) Stream setpoints until within tolerance
         dt = 1.0 / max(1e-3, self.sp_rate_hz)
-        self.get_logger().info('Flying to relative goal...')
         while rclpy.ok():
             rclpy.spin_once(self, timeout_sec=0.0)
             cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
-            yaw_err = abs(self._ang_norm(self.goal_yaw - cyaw))
-            if (abs(cx - gx) <= self.pos_tol and
-                abs(cy - gy) <= self.pos_tol and
-                abs(cz - gz) <= self.pos_tol and
-                yaw_err <= self.yaw_tol):
+            pos_ok = (abs(cx-gx) <= self.pos_tol and abs(cy-gy) <= self.pos_tol and abs(cz-gz) <= self.pos_tol)
+            yaw_ok = (abs(self._ang_norm(gyaw - cyaw)) <= self.yaw_tol)
+            if pos_ok and yaw_ok:
                 break
-            self._publish_position_target(gx, gy, gz, self.goal_yaw)
+            self._publish_position_target(gx, gy, gz, gyaw)
             time.sleep(dt)
-        self.get_logger().info('Leader reached goal pose (within tolerance).')
+        self.get_logger().info('Reached initial relative goal.')
 
-        # 7) Rate-limited flight to relative goal
-        # self.get_logger().info('Flying to relative goal (rate-limited)...')
-        # self._goto_with_limits(gx, gy, gz, self.goal_yaw)
-        # self.get_logger().info('Leader reached goal pose (within tolerance).')
-
-
-        # 8) Wait for follower(s): simple airborne check for uav2 while holding position
-        self.get_logger().info('Waiting for followers (uav2) to be airborne...')
-        while rclpy.ok():
+        # 8) Wait follower airborne (uav2) while holding
+        while rclpy.ok() and self.rel_alt2 < (self.target_alt - self.alt_air_thresh):
             rclpy.spin_once(self, timeout_sec=0.0)
-            air2 = self.rel_alt2 > self.target_alt - self.alt_air_thresh
-            if air2:
-                break
-            # Keep leader stable at goal while waiting
-            self._publish_position_target(gx, gy, gz, self.goal_yaw)
+            self._publish_position_target(gx, gy, gz, gyaw)
             time.sleep(dt)
-        self.get_logger().info('Follower(s) ready.')
+        self.get_logger().info('Follower airborne, starting test sequence.')
 
-        # _________________________________________________________________________________________ 
-        # 09. TEST CODE ( rate-limited) — with altitude change + robust forward move
-        # _________________________________________________________________________________________ 
-
-        # Parameters
-        step_forward_m = 5.0     # how far to move forward
-        climb_delta_m  = 2.0     # climb amount before moving forward (set 0.0 to disable)
-
-        # 9a) Rotate +90° in place at (gx, gy, gz)
-        _, _, _, cyaw = self._pose_xyz_yaw(self.pose1)
-        yaw1 = self._ang_norm(cyaw + math.pi/2.0)
-        self.get_logger().info(f'Rotate to yaw1 = {math.degrees(yaw1):.1f}° (rate-limited)')
-        self._goto_with_limits(gx, gy, gz, yaw1)
-
-        # ✨ Re-sample pose after the rotation settles (avoid using stale (gx,gy))
+        # ---------------- Test: rotate + climb + forward + descend + rotate ----------------
+        # Current pose snapshot
         px, py, pz, pyaw = self._pose_xyz_yaw(self.pose1)
 
-        # 9a.1) Optional: climb before moving forward (holds yaw1)
-        target_alt = gz + climb_delta_m
-        self.get_logger().info(f'Climb to {target_alt:.2f} m (holding yaw)')
-        self._goto_with_limits(px, py, target_alt, yaw1)
+        # a) Rotate +90° at current spot
+        yaw1 = self._ang_norm(pyaw + math.pi/2.0)
+        self.get_logger().info(f'Rotate to yaw1 = {math.degrees(yaw1):.1f}°')
+        while rclpy.ok() and abs(self._ang_norm(self._pose_xyz_yaw(self.pose1)[3] - yaw1)) > self.yaw_tol:
+            rclpy.spin_once(self, timeout_sec=0.0)
+            self._publish_position_target(px, py, pz, yaw1)
+            time.sleep(dt)
 
-        # 9b) Move forward along yaw1 while holding yaw1 and the climbed altitude
-        # Use the *current* pose (px,py) as the base, not the previous goal.
-        nx = px + math.cos(yaw1) * step_forward_m   # ENU: x=East
-        ny = py + math.sin(yaw1) * step_forward_m   # ENU: y=North
-        self.get_logger().info(f'Move forward {step_forward_m:.1f} m to ({nx:.2f}, {ny:.2f}, {target_alt:.2f}) (rate-limited)')
-        self._goto_with_limits(nx, ny, target_alt, yaw1)
+        # b) Climb 2 m (hold yaw1)
+        climb_alt = pz + 2.0
+        self.get_logger().info(f'Climb to {climb_alt:.2f} m')
+        while rclpy.ok():
+            rclpy.spin_once(self, timeout_sec=0.0)
+            cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
+            if abs(cz - climb_alt) <= self.pos_tol:
+                break
+            self._publish_position_target(px, py, climb_alt, yaw1)
+            time.sleep(dt)
 
-        # 9b.1) Optional: descend back to original gz (still holding yaw1)
-        if abs(climb_delta_m) > 1e-3:
-            self.get_logger().info(f'Descend back to {gz:.2f} m (holding yaw)')
-            self._goto_with_limits(nx, ny, gz, yaw1)
+        # c) Move 5 m forward along yaw1 (hold yaw1)
+        nx = px + math.cos(yaw1) * 5.0
+        ny = py + math.sin(yaw1) * 5.0
+        self.get_logger().info(f'Move forward to ({nx:.2f},{ny:.2f},{climb_alt:.2f})')
+        while rclpy.ok():
+            rclpy.spin_once(self, timeout_sec=0.0)
+            cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
+            if (abs(cx-nx)<=self.pos_tol and abs(cy-ny)<=self.pos_tol and abs(cz-climb_alt)<=self.pos_tol):
+                break
+            self._publish_position_target(nx, ny, climb_alt, yaw1)
+            time.sleep(dt)
 
-        # 9c) Rotate +90° again at the new spot
+        # d) Descend back to original altitude gz (hold yaw1)
+        self.get_logger().info(f'Descend to {gz:.2f} m')
+        while rclpy.ok():
+            rclpy.spin_once(self, timeout_sec=0.0)
+            cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
+            if abs(cz - gz) <= self.pos_tol:
+                break
+            self._publish_position_target(nx, ny, gz, yaw1)
+            time.sleep(dt)
+
+        # e) Rotate +90° again at the new spot
         yaw2 = self._ang_norm(yaw1 + math.pi/2.0)
-        self.get_logger().info(f'Rotate to yaw2 = {math.degrees(yaw2):.1f}° (rate-limited)')
-        self._goto_with_limits(nx, ny, gz, yaw2)
-        # _________________________________________________________________________________________
+        self.get_logger().info(f'Rotate to yaw2 = {math.degrees(yaw2):.1f}°')
+        while rclpy.ok() and abs(self._ang_norm(self._pose_xyz_yaw(self.pose1)[3] - yaw2)) > self.yaw_tol:
+            rclpy.spin_once(self, timeout_sec=0.0)
+            self._publish_position_target(nx, ny, gz, yaw2)
+            time.sleep(dt)
 
-        # 10) Switch to POSHOLD / POSCTL
+        # 9) Switch to POSHOLD/POSCTL
         self._set_mode(self.poshold_mode)
-        self.get_logger().info('Rotate–move–rotate complete; switched to position hold.')
-
+        self.get_logger().info('Test complete; switched to position hold.')
 
 def main() -> None:
     rclpy.init()
@@ -374,7 +270,6 @@ def main() -> None:
     finally:
         node.destroy_node()
         rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()

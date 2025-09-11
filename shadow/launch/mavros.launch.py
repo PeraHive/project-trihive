@@ -13,7 +13,7 @@ def make_mavros_node(ns, fcu_url, gcs_url, sys_id, tgt_sys_id):
             output='screen',
             parameters=[{
                 'fcu_url': fcu_url,
-                # 'gcs_url': gcs_url,
+                'gcs_url': gcs_url,
                 'system_id': sys_id,
                 'target_system_id': tgt_sys_id,
             }],
@@ -94,3 +94,4 @@ def generate_launch_description():
         ),
         OpaqueFunction(function=_setup),
     ])
+
