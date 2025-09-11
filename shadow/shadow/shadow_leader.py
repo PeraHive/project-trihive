@@ -52,7 +52,7 @@ class ShadowLeader(Node):
         self.guided_mode  = self.declare_parameter('guided_mode', 'GUIDED').get_parameter_value().string_value
         self.poshold_mode = self.declare_parameter('poshold_mode', 'POSHOLD').get_parameter_value().string_value
 
-        self.target_alt = float(self.declare_parameter('target_alt', 10.0).get_parameter_value().double_value)
+        self.target_alt = float(self.declare_parameter('target_alt', 5.0).get_parameter_value().double_value)
         self.arm_retry_sec = float(self.declare_parameter('arm_retry_sec', 2.0).get_parameter_value().double_value)
 
         self.rel_dx = float(self.declare_parameter('rel_dx', 0.0).get_parameter_value().double_value)
@@ -61,7 +61,7 @@ class ShadowLeader(Node):
 
         self.target_yaw = float(self.declare_parameter('target_yaw', math.pi/2).get_parameter_value().double_value)
 
-        self.alt_air_thresh = float(self.declare_parameter('alt_air_thresh', 0.5).get_parameter_value().double_value)
+        self.alt_air_thresh = float(self.declare_parameter('alt_air_thresh', 1).get_parameter_value().double_value)
         self.pos_tol = float(self.declare_parameter('pos_tol', 0.8).get_parameter_value().double_value)
         self.yaw_tol = float(self.declare_parameter('yaw_tol', math.radians(8.0)).get_parameter_value().double_value)
 
@@ -177,86 +177,86 @@ class ShadowLeader(Node):
         self.get_logger().info(f'Leader airborne: rel_alt={self.rel_alt1:.1f} m')
 
         # 6) Compute initial goal relative to current pose
-        rclpy.spin_once(self, timeout_sec=0.2)
-        x0, y0, z0, _ = self._pose_xyz_yaw(self.pose1)
-        gx = x0 + self.rel_dx
-        gy = y0 + self.rel_dy
-        gz = (z0 + self.rel_dz) if abs(self.rel_dz) > 1e-3 else self.target_alt
-        gyaw = self.target_yaw
-        self.get_logger().info(f'Initial goal -> ({gx:.2f},{gy:.2f},{gz:.2f}), yaw={math.degrees(gyaw):.1f}°')
+        # rclpy.spin_once(self, timeout_sec=0.2)
+        # x0, y0, z0, _ = self._pose_xyz_yaw(self.pose1)
+        # gx = x0 + self.rel_dx
+        # gy = y0 + self.rel_dy
+        # gz = (z0 + self.rel_dz) if abs(self.rel_dz) > 1e-3 else self.target_alt
+        # gyaw = self.target_yaw
+        # self.get_logger().info(f'Initial goal -> ({gx:.2f},{gy:.2f},{gz:.2f}), yaw={math.degrees(gyaw):.1f}°')
 
         # 7) Stream setpoints until within tolerance
         dt = 1.0 / max(1e-3, self.sp_rate_hz)
         while rclpy.ok():
             rclpy.spin_once(self, timeout_sec=0.0)
-            cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
-            pos_ok = (abs(cx-gx) <= self.pos_tol and abs(cy-gy) <= self.pos_tol and abs(cz-gz) <= self.pos_tol)
-            yaw_ok = (abs(self._ang_norm(gyaw - cyaw)) <= self.yaw_tol)
-            if pos_ok and yaw_ok:
-                break
-            self._publish_position_target(gx, gy, gz, gyaw)
+            # cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
+            # pos_ok = (abs(cx-gx) <= self.pos_tol and abs(cy-gy) <= self.pos_tol and abs(cz-gz) <= self.pos_tol)
+            # yaw_ok = (abs(self._ang_norm(gyaw - cyaw)) <= self.yaw_tol)
+            # if pos_ok and yaw_ok:
+            #     break
+            self._publish_position_target(0, 0, 0, 0)
             time.sleep(dt)
         self.get_logger().info('Reached initial relative goal.')
 
         # 8) Wait follower airborne (uav2) while holding
         while rclpy.ok() and self.rel_alt2 < (self.target_alt - self.alt_air_thresh):
             rclpy.spin_once(self, timeout_sec=0.0)
-            self._publish_position_target(gx, gy, gz, gyaw)
+            self._publish_position_target(0, 0, 0, 0)
             time.sleep(dt)
         self.get_logger().info('Follower airborne, starting test sequence.')
 
-        # ---------------- Test: rotate + climb + forward + descend + rotate ----------------
-        # Current pose snapshot
-        px, py, pz, pyaw = self._pose_xyz_yaw(self.pose1)
+        # # ---------------- Test: rotate + climb + forward + descend + rotate ----------------
+        # # Current pose snapshot
+        # px, py, pz, pyaw = self._pose_xyz_yaw(self.pose1)
 
-        # a) Rotate +90° at current spot
-        yaw1 = self._ang_norm(pyaw + math.pi/2.0)
-        self.get_logger().info(f'Rotate to yaw1 = {math.degrees(yaw1):.1f}°')
-        while rclpy.ok() and abs(self._ang_norm(self._pose_xyz_yaw(self.pose1)[3] - yaw1)) > self.yaw_tol:
-            rclpy.spin_once(self, timeout_sec=0.0)
-            self._publish_position_target(px, py, pz, yaw1)
-            time.sleep(dt)
+        # # a) Rotate +90° at current spot
+        # yaw1 = self._ang_norm(pyaw + math.pi/2.0)
+        # self.get_logger().info(f'Rotate to yaw1 = {math.degrees(yaw1):.1f}°')
+        # while rclpy.ok() and abs(self._ang_norm(self._pose_xyz_yaw(self.pose1)[3] - yaw1)) > self.yaw_tol:
+        #     rclpy.spin_once(self, timeout_sec=0.0)
+        #     self._publish_position_target(px, py, pz, yaw1)
+        #     time.sleep(dt)
 
-        # b) Climb 2 m (hold yaw1)
-        climb_alt = pz + 2.0
-        self.get_logger().info(f'Climb to {climb_alt:.2f} m')
-        while rclpy.ok():
-            rclpy.spin_once(self, timeout_sec=0.0)
-            cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
-            if abs(cz - climb_alt) <= self.pos_tol:
-                break
-            self._publish_position_target(px, py, climb_alt, yaw1)
-            time.sleep(dt)
+        # # b) Climb 2 m (hold yaw1)
+        # climb_alt = pz + 2.0
+        # self.get_logger().info(f'Climb to {climb_alt:.2f} m')
+        # while rclpy.ok():
+        #     rclpy.spin_once(self, timeout_sec=0.0)
+        #     cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
+        #     if abs(cz - climb_alt) <= self.pos_tol:
+        #         break
+        #     self._publish_position_target(px, py, climb_alt, yaw1)
+        #     time.sleep(dt)
 
-        # c) Move 5 m forward along yaw1 (hold yaw1)
-        nx = px + math.cos(yaw1) * 5.0
-        ny = py + math.sin(yaw1) * 5.0
-        self.get_logger().info(f'Move forward to ({nx:.2f},{ny:.2f},{climb_alt:.2f})')
-        while rclpy.ok():
-            rclpy.spin_once(self, timeout_sec=0.0)
-            cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
-            if (abs(cx-nx)<=self.pos_tol and abs(cy-ny)<=self.pos_tol and abs(cz-climb_alt)<=self.pos_tol):
-                break
-            self._publish_position_target(nx, ny, climb_alt, yaw1)
-            time.sleep(dt)
+        # # c) Move 5 m forward along yaw1 (hold yaw1)
+        # nx = px + math.cos(yaw1) * 5.0
+        # ny = py + math.sin(yaw1) * 5.0
+        # self.get_logger().info(f'Move forward to ({nx:.2f},{ny:.2f},{climb_alt:.2f})')
+        # while rclpy.ok():
+        #     rclpy.spin_once(self, timeout_sec=0.0)
+        #     cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
+        #     if (abs(cx-nx)<=self.pos_tol and abs(cy-ny)<=self.pos_tol and abs(cz-climb_alt)<=self.pos_tol):
+        #         break
+        #     self._publish_position_target(nx, ny, climb_alt, yaw1)
+        #     time.sleep(dt)
 
-        # d) Descend back to original altitude gz (hold yaw1)
-        self.get_logger().info(f'Descend to {gz:.2f} m')
-        while rclpy.ok():
-            rclpy.spin_once(self, timeout_sec=0.0)
-            cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
-            if abs(cz - gz) <= self.pos_tol:
-                break
-            self._publish_position_target(nx, ny, gz, yaw1)
-            time.sleep(dt)
+        # # d) Descend back to original altitude gz (hold yaw1)
+        # self.get_logger().info(f'Descend to {gz:.2f} m')
+        # while rclpy.ok():
+        #     rclpy.spin_once(self, timeout_sec=0.0)
+        #     cx, cy, cz, cyaw = self._pose_xyz_yaw(self.pose1)
+        #     if abs(cz - gz) <= self.pos_tol:
+        #         break
+        #     self._publish_position_target(nx, ny, gz, yaw1)
+        #     time.sleep(dt)
 
-        # e) Rotate +90° again at the new spot
-        yaw2 = self._ang_norm(yaw1 + math.pi/2.0)
-        self.get_logger().info(f'Rotate to yaw2 = {math.degrees(yaw2):.1f}°')
-        while rclpy.ok() and abs(self._ang_norm(self._pose_xyz_yaw(self.pose1)[3] - yaw2)) > self.yaw_tol:
-            rclpy.spin_once(self, timeout_sec=0.0)
-            self._publish_position_target(nx, ny, gz, yaw2)
-            time.sleep(dt)
+        # # e) Rotate +90° again at the new spot
+        # yaw2 = self._ang_norm(yaw1 + math.pi/2.0)
+        # self.get_logger().info(f'Rotate to yaw2 = {math.degrees(yaw2):.1f}°')
+        # while rclpy.ok() and abs(self._ang_norm(self._pose_xyz_yaw(self.pose1)[3] - yaw2)) > self.yaw_tol:
+        #     rclpy.spin_once(self, timeout_sec=0.0)
+        #     self._publish_position_target(nx, ny, gz, yaw2)
+        #     time.sleep(dt)
 
         # 9) Switch to POSHOLD/POSCTL
         self._set_mode(self.poshold_mode)

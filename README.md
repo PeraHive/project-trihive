@@ -34,6 +34,7 @@ ros2 launch shadow mavros.launch.py uavs:="1,2"
 ros2 launch shadow simulator.launch.py uavs:=1,2 base_port:=14550 bind_ip:=0.0.0.0
 ```
 
+
 ### 3. Launch the Full Shadow Swarm
 ```bash
 ros2 launch shadow shadow.launch.py
@@ -141,7 +142,26 @@ python3 ~/Projects/ardupilot_ws/Tools/autotest/sim_vehicle.py \
 ```
 
 
+# Position-related (GPS + global position, incl. rel_alt)
+ros2 service call /uav1/param/set mavros_msgs/srv/ParamSet \
+  "{param_id: 'SR2_POSITION', value: {integer: 3}}"
 
+# Local pose & attitude group (covers LOCAL_POSITION_NED used by /local_position/pose)
+ros2 service call /uav1/param/set mavros_msgs/srv/ParamSet \
+  "{param_id: 'SR2_EXTRA1', value: {integer: 15}}"
+
+# Basic status (nice to have; your /state already works but keep 1 Hz)
+ros2 service call /uav1/param/set mavros_msgs/srv/ParamSet \
+  "{param_id: 'SR2_EXT_STAT', value: {integer: 1}}"
+
+ros2 service call /uav2/param/set mavros_msgs/srv/ParamSet \
+  "{param_id: 'SR2_POSITION', value: {integer: 3}}"
+
+ros2 service call /uav2/param/set mavros_msgs/srv/ParamSet \
+  "{param_id: 'SR2_EXTRA1', value: {integer: 15}}"
+
+ros2 service call /uav2/param/set mavros_msgs/srv/ParamSet \
+  "{param_id: 'SR2_EXT_STAT', value: {integer: 1}}"
 
 
 

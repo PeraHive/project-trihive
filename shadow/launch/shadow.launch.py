@@ -11,7 +11,7 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'rel_dy': 0.0,
-                'target_alt':5.0,
+                'target_alt':3.0,
             }]
         ),
 
@@ -26,7 +26,7 @@ def generate_launch_description():
                 'leader_ns': '/uav1',
                 'side': 'right',
                 'slot_offset_m': 3.0,
-                'target_alt': 5.0,
+                'target_alt': 3.0,
             }],
         ),
 

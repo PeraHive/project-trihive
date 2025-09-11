@@ -50,7 +50,7 @@ class ShadowFollower(Node):
         self.side = side if side in ('left', 'right') else 'left'
 
         self.slot_offset_m = float(self.declare_parameter('slot_offset_m', 5.0).get_parameter_value().double_value)
-        self.target_alt    = float(self.declare_parameter('target_alt', 10.0).get_parameter_value().double_value)
+        self.target_alt    = float(self.declare_parameter('target_alt', 5.0).get_parameter_value().double_value)
 
         self.guided_mode   = self.declare_parameter('guided_mode', 'GUIDED').get_parameter_value().string_value
         self.poshold_mode  = self.declare_parameter('poshold_mode', 'POSHOLD').get_parameter_value().string_value
@@ -216,7 +216,7 @@ class ShadowFollower(Node):
             # Leader pose in its local frame
             lx, ly, lz, lyaw = self._pose_xyz_yaw(self.leader_pose)
             # Optionally translate leader pose into follower's local frame
-            lx, ly, lz = self._bridge_leader_pose_if_needed(lx, ly, lz)
+            # lx, ly, lz = self._bridge_leader_pose_if_needed(lx, ly, lz)
             # Slot offset (XY only); altitude follows leader exactly
             ox, oy = self._slot_offset_vector(lyaw, self.slot_offset_m)
             gx, gy, gz = lx + ox, ly + oy, lz
