@@ -159,8 +159,17 @@ class SimpleLeaderGPS(Node):
             rclpy.spin_once(self, timeout_sec=0.2)
         while rclpy.ok() and (math.isnan(self.gps.latitude) or math.isnan(self.gps.longitude)):
             rclpy.spin_once(self, timeout_sec=0.2)
+        
+        # Hold position for 3 seconds before starting manoeuvre
+        self.get_logger().info('Holding position for 3 seconds...')
+        hold_start = self.get_clock().now()
+        dt = 1.0 / max(1e-3, self.sp_rate_hz)
+        while (self.get_clock().now() - hold_start).nanoseconds < 5e9:
+            rclpy.spin_once(self, timeout_sec=0.0)
+            self._hold_local_here()
+            time.sleep(dt)
 
-        # ---------- GPS manoeuvre: forward then climb ----------
+        # # ---------- GPS manoeuvre: forward then climb ----------
         # lat0 = float(self.gps.latitude)
         # lon0 = float(self.gps.longitude)
         # hdg_rad = math.radians(self.heading_deg)
@@ -173,8 +182,8 @@ class SimpleLeaderGPS(Node):
         # tgt1_lon = lon0 + dlon
         # tgt1_alt = self.target_alt
 
-        # self.get_logger().info(f'Move forward {self.forward_m:.1f} m in global frame')
-        dt = 1.0 / max(1e-3, self.sp_rate_hz)
+        # # self.get_logger().info(f'Move forward {self.forward_m:.1f} m in global frame')
+        # dt = 1.0 / max(1e-3, self.sp_rate_hz)
         # for _ in range(int(3 * self.sp_rate_hz)):
         #     rclpy.spin_once(self, timeout_sec=0.0)
         #     self._publish_global(tgt1_lat, tgt1_lon, tgt1_alt, hdg_rad)

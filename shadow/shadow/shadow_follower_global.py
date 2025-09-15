@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 import time
 import math
@@ -10,20 +9,21 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
 
 from std_msgs.msg import Float64
 from sensor_msgs.msg import NavSatFix
-from mavros_msgs.msg import State, GlobalPositionTarget, HomePosition
+from mavros_msgs.msg import State, GlobalPositionTarget
 from mavros_msgs.srv import CommandBool, CommandTOL, SetMode
 
 
+EARTH_RADIUS_M = 6378137.0  # WGS84
+
 class GPSShadowFollower(Node):
     """
-    GPS-based shadow follower.
+    GPS-based shadow follower (fixed lateral offset).
 
     Idea:
-      - Read leader & follower *home* GPS.
-      - Compute offset dLat/dLon = follower_home - leader_home.
-      - Track the leader's current GPS by publishing leader_gps + offset as a
-        SET_POSITION_TARGET_GLOBAL_INT (REL_ALT frame).
-      - Copy leader heading (optional) and relative altitude.
+      - Track leader's current GPS.
+      - Compute a fixed lateral offset (left/right of leader heading) in meters.
+      - Publish a SET_POSITION_TARGET_GLOBAL_INT (REL_ALT frame) at leader_gps + offset.
+      - Copy leader heading (optional) and fly at target_alt.
       - If leader switches to RTL, follower also switches to RTL.
 
     Works with ArduPilot via MAVROS on ROS 2.
@@ -44,6 +44,10 @@ class GPSShadowFollower(Node):
         self.guided_mode = self.declare_parameter('guided_mode', 'GUIDED').get_parameter_value().string_value
         self.copy_yaw    = self.declare_parameter('copy_yaw', True).get_parameter_value().bool_value
 
+        # New: fixed lateral slot
+        self.side = self.declare_parameter('side', 'right').get_parameter_value().string_value.lower()
+        self.slot_offset_m = float(self.declare_parameter('slot_offset_m', 3.0).get_parameter_value().double_value)
+
         # ---------------- Internal state ----------------
         self.my_state = State()
         self.my_rel_alt = 0.0
@@ -53,24 +57,16 @@ class GPSShadowFollower(Node):
         self.leader_rel_alt = 0.0
         self.leader_heading_rad = 0.0
 
-        self.home_leader: Optional[HomePosition] = None
-        self.home_follower: Optional[HomePosition] = None
-        self.offset_lat = 0.0
-        self.offset_lon = 0.0
-        self.offset_ready = False
-
         # ---------------- Subscriptions ----------------
-        # Follower own state / altitude / home
+        # Follower own state / altitude
         self.create_subscription(State,    f'{self.follower_ns}/state',                   self._state_cb, qos_sensor)
         self.create_subscription(Float64,  f'{self.follower_ns}/global_position/rel_alt', self._alt_cb,   qos_sensor)
-        self.create_subscription(HomePosition, f'{self.follower_ns}/home_position/home',  self._home_follower_cb, qos_sensor)
 
-        # Leader state / gps / rel alt / heading / home
+        # Leader state / gps / rel alt / heading
         self.create_subscription(State,    f'{self.leader_ns}/state',                     self._leader_state_cb,   qos_sensor)
         self.create_subscription(NavSatFix,f'{self.leader_ns}/global_position/global',    self._leader_gps_cb,     qos_sensor)
         self.create_subscription(Float64,  f'{self.leader_ns}/global_position/rel_alt',   self._leader_rel_alt_cb, qos_sensor)
         self.create_subscription(Float64,  f'{self.leader_ns}/global_position/compass_hdg', self._leader_heading_cb, qos_sensor)
-        self.create_subscription(HomePosition, f'{self.leader_ns}/home_position/home',    self._home_leader_cb,    qos_sensor)
 
         # ---------------- Publisher ----------------
         self.sp_pub = self.create_publisher(GlobalPositionTarget, f'{self.follower_ns}/setpoint_raw/global', 10)
@@ -85,12 +81,17 @@ class GPSShadowFollower(Node):
             cli.wait_for_service()
         self.get_logger().info('MAVROS services ready.')
 
+        # Validate side
+        if self.side not in ('left', 'right'):
+            self.get_logger().warn(f"Unknown side='{self.side}', defaulting to 'right'")
+            self.side = 'right'
+
     # ---------------- Callbacks ----------------
     def _state_cb(self, msg: State): self.my_state = msg
     def _alt_cb(self, msg: Float64): self.my_rel_alt = float(msg.data)
 
     def _leader_state_cb(self, msg: State):
-        prev = self.leader_state.mode if hasattr(self.leader_state, 'mode') else ''
+        prev = getattr(self.leader_state, 'mode', '')
         self.leader_state = msg
         if msg.mode == 'RTL' and prev != 'RTL':
             self.get_logger().warn('Leader entered RTL → switching follower to RTL.')
@@ -102,24 +103,7 @@ class GPSShadowFollower(Node):
         # Input in degrees, convert to radians
         self.leader_heading_rad = math.radians(float(msg.data))
 
-    def _home_leader_cb(self, msg: HomePosition):
-        self.home_leader = msg
-        self._compute_offset_if_ready()
-
-    def _home_follower_cb(self, msg: HomePosition):
-        self.home_follower = msg
-        self._compute_offset_if_ready()
-
     # ---------------- Helpers ----------------
-    def _compute_offset_if_ready(self):
-        if self.home_leader is None or self.home_follower is None:
-            return
-        # dLat/dLon in *degrees* (small delta is fine within local area)
-        self.offset_lat = float(self.home_follower.geo.latitude  - self.home_leader.geo.latitude)
-        self.offset_lon = float(self.home_follower.geo.longitude - self.home_leader.geo.longitude)
-        self.offset_ready = True
-        self.get_logger().info(f'Home offset ready: dLat={self.offset_lat:.7f}, dLon={self.offset_lon:.7f}')
-
     def _set_mode(self, mode: str) -> bool:
         req = SetMode.Request(); req.base_mode = 0; req.custom_mode = mode
         fut = self.setmode_cli.call_async(req)
@@ -164,6 +148,15 @@ class GPSShadowFollower(Node):
             sp.yaw = float(yaw_rad)
         self.sp_pub.publish(sp)
 
+    @staticmethod
+    def _meters_to_deg(dn_m: float, de_m: float, ref_lat_deg: float):
+        """Convert local N/E meters to dLat/dLon degrees at reference latitude."""
+        dlat = (dn_m / EARTH_RADIUS_M) * (180.0 / math.pi)
+        # guard cos(lat) near poles
+        clat = max(1e-6, math.cos(math.radians(ref_lat_deg)))
+        dlon = (de_m / (EARTH_RADIUS_M * clat)) * (180.0 / math.pi)
+        return dlat, dlon
+
     # ---------------- Mission ----------------
     def run(self):
         # Wait FCU
@@ -185,27 +178,39 @@ class GPSShadowFollower(Node):
             rclpy.spin_once(self, timeout_sec=0.2)
         self.get_logger().info(f'Follower airborne at {self.my_rel_alt:.1f} m')
 
-        # Wait for home offsets and valid leader GPS
-        self.get_logger().info('Waiting for home positions and leader GPS…')
-        while rclpy.ok() and not self.offset_ready:
-            rclpy.spin_once(self, timeout_sec=0.2)
-        while rclpy.ok() and (math.isnan(self.leader_gps.latitude) or math.isnan(self.leader_gps.longitude)):
+        # Wait for valid leader GPS
+        self.get_logger().info('Waiting for leader GPS…')
+        # Some sources publish 0.0 initially; wait until we see a plausible lat/lon
+        def _gps_valid(g):
+            return abs(g.latitude) > 1e-6 or abs(g.longitude) > 1e-6
+        while rclpy.ok() and not _gps_valid(self.leader_gps):
             rclpy.spin_once(self, timeout_sec=0.2)
 
-        self.get_logger().info('GPS shadow engaged (global).')
+        self.get_logger().info('GPS shadow engaged (fixed lateral offset).')
         dt = 1.0 / max(1e-3, self.sp_rate_hz)
+
+        # Lateral sign: +left, -right relative to leader heading
+        lateral_m = self.slot_offset_m if self.side == 'left' else -self.slot_offset_m
+
         while rclpy.ok():
             rclpy.spin_once(self, timeout_sec=0.0)
 
-            # Check for leader RTL (handled in callback too, but keep a guard)
+            # Check for leader RTL (also handled in callback)
             if self.leader_state.mode == 'RTL':
                 self._set_mode('RTL')
                 break
 
-            # Compose target from leader GPS + home-offset
-            tgt_lat = float(self.leader_gps.latitude)  + self.offset_lat
-            tgt_lon = float(self.leader_gps.longitude) + self.offset_lon
-            tgt_alt = float(self.leader_rel_alt)       # relative altitude to follower's home (REL_ALT frame)
+            # Compute lateral offset in local N/E meters from leader heading
+            psi = self.leader_heading_rad  # radians, 0 = North, increases Eastward
+            dn = -lateral_m * math.sin(psi)  # north component
+            de =  lateral_m * math.cos(psi)  # east component
+
+            # Convert to lat/lon degrees at leader latitude
+            dlat_deg, dlon_deg = self._meters_to_deg(dn, de, self.leader_gps.latitude)
+
+            tgt_lat = float(self.leader_gps.latitude)  + dlat_deg
+            tgt_lon = float(self.leader_gps.longitude) + dlon_deg
+            tgt_alt = float(self.target_alt)  # hold configured altitude
 
             self._publish_global_target(tgt_lat, tgt_lon, tgt_alt, self.leader_heading_rad)
             time.sleep(dt)
