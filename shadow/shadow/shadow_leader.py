@@ -187,27 +187,27 @@ class SimpleLeader(Node):
         self.get_logger().info(f'Trial: climb +{self.climb_m:.1f} m')
         self._drive_to(fx, fy, cz, pyaw)
 
-        # c) rotate +90° at the spot, step-wise
-        total_yaw = self._ang_norm(pyaw + self.yaw_step)  # final yaw target
-        step_deg  = 5.0                                  # yaw increment in degrees
-        step_rad  = math.radians(step_deg)
+        # # c) rotate +90° at the spot, step-wise
+        # total_yaw = self._ang_norm(pyaw + self.yaw_step)  # final yaw target
+        # step_deg  = 5.0                                  # yaw increment in degrees
+        # step_rad  = math.radians(step_deg)
 
-        # choose direction of rotation (shortest path)
-        diff = self._ang_norm(total_yaw - pyaw)
-        direction = 1.0 if diff > 0 else -1.0
-        n_steps = int(abs(diff) / step_rad)
+        # # choose direction of rotation (shortest path)
+        # diff = self._ang_norm(total_yaw - pyaw)
+        # direction = 1.0 if diff > 0 else -1.0
+        # n_steps = int(abs(diff) / step_rad)
 
-        self.get_logger().info(f'Trial: rotate {math.degrees(diff):.1f}° in {n_steps} steps of {step_deg}°')
+        # self.get_logger().info(f'Trial: rotate {math.degrees(diff):.1f}° in {n_steps} steps of {step_deg}°')
 
-        cyaw = pyaw
-        for i in range(n_steps):
-            cyaw = self._ang_norm(cyaw + direction * step_rad)
-            self._drive_to(fx, fy, cz, cyaw)
-            self.get_logger().info(f'  → step {i+1}/{n_steps}, yaw={math.degrees(cyaw):.1f}°')
+        # cyaw = pyaw
+        # for i in range(n_steps):
+        #     cyaw = self._ang_norm(cyaw + direction * step_rad)
+        #     self._drive_to(fx, fy, cz, cyaw)
+        #     self.get_logger().info(f'  → step {i+1}/{n_steps}, yaw={math.degrees(cyaw):.1f}°')
 
-        # final fine alignment to total_yaw
-        self._drive_to(fx, fy, cz, total_yaw)
-        self.get_logger().info(f'Final yaw = {math.degrees(total_yaw):.1f}°')
+        # # final fine alignment to total_yaw
+        # self._drive_to(fx, fy, cz, total_yaw)
+        # self.get_logger().info(f'Final yaw = {math.degrees(total_yaw):.1f}°')
 
 
         # Switch to position hold

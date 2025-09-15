@@ -6,7 +6,7 @@ def generate_launch_description():
         # Leader (uav1)
         Node(
             package='shadow',
-            executable='shadow_leader',
+            executable='shadow_leader_global',
             namespace='leader',
             output='screen',
             parameters=[{
@@ -18,7 +18,7 @@ def generate_launch_description():
         # Follower uav2 (right side)
         Node(
             package='shadow',
-            executable='shadow_follower',
+            executable='shadow_follower_global',
             namespace='follower_right',
             output='screen',
             parameters=[{
@@ -33,7 +33,7 @@ def generate_launch_description():
         # Follower uav3 (left side)
         Node(
             package='shadow',
-            executable='shadow_follower',
+            executable='shadow_follower_global',
             namespace='follower_left',
             output='screen',
             parameters=[{

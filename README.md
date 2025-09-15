@@ -40,6 +40,10 @@ ros2 launch shadow simulator.launch.py uavs:=1,2 base_port:=14550 bind_ip:=0.0.0
 ros2 launch shadow shadow.launch.py
 ```
 
+```bash
+ros2 launch shadow shadow_global.launch.py
+```
+
 ---
 
 ## ▶️ Run Nodes Individually

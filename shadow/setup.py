@@ -12,6 +12,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/shadow/launch', [
         'launch/shadow.launch.py',
+        'launch/shadow_global.launch.py',
         'launch/mavros.launch.py',
         'launch/simulator.launch.py',
 
@@ -28,6 +29,8 @@ setup(
         'console_scripts': [
               'shadow_leader = shadow.shadow_leader:main',
               'shadow_follower = shadow.shadow_follower:main',
+              'shadow_leader_global = shadow.shadow_leader_global:main',
+              'shadow_follower_global = shadow.shadow_follower_global:main',
         ],
     },
 )
