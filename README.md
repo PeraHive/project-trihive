@@ -26,12 +26,12 @@ source install/setup.bash
 
 ### 1. Run MAVROS for Multiple UAVs
 ```bash
-ros2 launch shadow mavros.launch.py uavs:="1,2"
+ros2 launch perahive_mavros mavros.launch.py uavs:="1,2"
 ```
 
 ### 2. Start the Simulator
 ```bash
-ros2 launch shadow simulator.launch.py uavs:=1,2 base_port:=14550 bind_ip:=0.0.0.0
+ros2 launch perahive_mavros simulator.launch.py uavs:=1,2 base_port:=14550 bind_ip:=0.0.0.0
 ```
 
 
@@ -103,10 +103,10 @@ cd ws
 colcon build && source install/setup.bash
 
 # Start MAVROS for 2 UAVs
-ros2 launch shadow mavros.launch.py uavs:="1,2"
+ros2 launch perahive_mavros mavros.launch.py uavs:="1,2"
 
 # Run simulator with 2 UAVs
-ros2 launch shadow simulator.launch.py uavs:="1,2" base_port:=14550 bind_ip:=127.0.0.1
+ros2 launch perahive_mavros simulator.launch.py uavs:="1,2" base_port:=14550 bind_ip:=127.0.0.1
 
 # Start the swarm control
 ros2 launch shadow shadow.launch.py

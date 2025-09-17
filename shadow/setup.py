@@ -13,9 +13,6 @@ setup(
         ('share/shadow/launch', [
         'launch/shadow.launch.py',
         'launch/shadow_global.launch.py',
-        'launch/mavros.launch.py',
-        'launch/simulator.launch.py',
-
         ]),
     ],
     install_requires=['setuptools'],

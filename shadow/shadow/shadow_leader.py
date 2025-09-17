@@ -174,18 +174,18 @@ class SimpleLeader(Node):
             time.sleep(dt)
 
         # ---------- Trial manoeuvres ----------
-        px, py, pz, pyaw = self._pose_xyz_yaw(self.pose1)
+        # px, py, pz, pyaw = self._pose_xyz_yaw(self.pose1)
 
-        # a) go forward 2 m along current yaw
-        fx = px + math.cos(pyaw) * self.forward_m
-        fy = py + math.sin(pyaw) * self.forward_m
-        self.get_logger().info(f'Trial: forward {self.forward_m:.1f} m')
-        self._drive_to(fx, fy, pz, pyaw)
+        # # a) go forward 2 m along current yaw
+        # fx = px + math.cos(pyaw) * self.forward_m
+        # fy = py + math.sin(pyaw) * self.forward_m
+        # self.get_logger().info(f'Trial: forward {self.forward_m:.1f} m')
+        # self._drive_to(fx, fy, pz, pyaw)
 
-        # b) climb +2 m (hold XY, yaw)
-        cz = pz + self.climb_m
-        self.get_logger().info(f'Trial: climb +{self.climb_m:.1f} m')
-        self._drive_to(fx, fy, cz, pyaw)
+        # # b) climb +2 m (hold XY, yaw)
+        # cz = pz + self.climb_m
+        # self.get_logger().info(f'Trial: climb +{self.climb_m:.1f} m')
+        # self._drive_to(fx, fy, cz, pyaw)
 
         # # c) rotate +90° at the spot, step-wise
         # total_yaw = self._ang_norm(pyaw + self.yaw_step)  # final yaw target
@@ -211,7 +211,8 @@ class SimpleLeader(Node):
 
 
         # Switch to position hold
-        self._set_mode(self.poshold_mode)
+        self._set_mode("AUTO")
+        # self._set_mode(self.poshold_mode)
         self.get_logger().info('Trial done → switched to position hold.')
 
 
