@@ -88,7 +88,7 @@ class PointShadowFollower(Node):
         # Copy leader pose (position) and compass heading (yaw)
         x = float(self.leader_pose.pose.position.x)
         y = float(self.leader_pose.pose.position.y)
-        z = float(self.leader_pose.pose.position.z)
+        z = float(self.leader_pose.pose.position.z)-1
         yaw = self.leader_heading
 
         sp = PositionTarget()
@@ -131,7 +131,7 @@ class PointShadowFollower(Node):
 
         # Point shadow loop
         self.get_logger().info('Point shadow engaged (copy position + yaw from compass_hdg).')
-        dt = 0.5 / max(1e-3, self.sp_rate_hz)
+        dt = 1 / max(1e-3, self.sp_rate_hz)
         while rclpy.ok():
             rclpy.spin_once(self, timeout_sec=0.0)
             self._publish_target_from_leader()

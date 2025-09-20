@@ -169,7 +169,7 @@ class SimpleLeader(Node):
         while rclpy.ok():
             rclpy.spin_once(self, timeout_sec=0.0)
             self._hold_here()
-            if (self.rel_alt2 >= (self.target_alt - self.alt_thresh)) or (self.rel_alt3 >= (self.target_alt - self.alt_thresh)):
+            if (self.rel_alt2 >= (self.target_alt - self.alt_thresh)) and (self.rel_alt3 >= (self.target_alt - self.alt_thresh)):
                 break
             time.sleep(dt)
 
