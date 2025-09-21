@@ -10,12 +10,11 @@ def generate_launch_description():
             namespace='leader',
             output='screen',
             parameters=[{
-                'rel_dy': 0.0,
-                'target_alt':5.0,
+                'target_alt': 8.0,
             }]
         ),
 
-        # Follower uav2 (right side)
+        # Follower uav2 (right side, +Y offset in ENU)
         Node(
             package='shadow',
             executable='shadow_follower',
@@ -24,14 +23,15 @@ def generate_launch_description():
             parameters=[{
                 'follower_ns': '/uav2',
                 'leader_ns': '/uav1',
-                'side': 'right',
-                'slot_offset_m': 3.0,
                 'target_alt': 5.0,
-                # 'sp_rate_hz':10,
+                'offset_e': 4.0,   # East (+x)
+                'offset_n': 0.0,  # North (+y); adjust sign for your formation
+                'offset_u': 0.0,   # Up (+z)
+                'sp_rate_hz': 12.0,
             }],
         ),
 
-        # Follower uav3 (left side)
+        # Follower uav3 (left side, -Y offset in ENU)
         Node(
             package='shadow',
             executable='shadow_follower',
@@ -40,10 +40,11 @@ def generate_launch_description():
             parameters=[{
                 'follower_ns': '/uav3',
                 'leader_ns': '/uav1',
-                'side': 'left',
-                'slot_offset_m': 3.0,
                 'target_alt': 5.0,
-                # 'sp_rate_hz':10,
+                'offset_e': -4.0,
+                'offset_n': 0.0,
+                'offset_u': 0.0,
+                'sp_rate_hz': 12.0,
             }],
         ),
     ])

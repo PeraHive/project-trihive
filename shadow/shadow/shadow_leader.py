@@ -29,7 +29,7 @@ class SimpleLeader(Node):
         self.poshold_mode = self.declare_parameter('poshold_mode', 'POSHOLD').get_parameter_value().string_value
         self.target_alt   = float(self.declare_parameter('target_alt', 3.0).get_parameter_value().double_value)
         self.alt_thresh   = float(self.declare_parameter('alt_air_thresh', 0.5).get_parameter_value().double_value)
-        self.sp_rate_hz   = float(self.declare_parameter('sp_rate_hz', 12.0).get_parameter_value().double_value)
+        self.sp_rate_hz   = float(self.declare_parameter('sp_rate_hz', 10.0).get_parameter_value().double_value)
 
         # trial manoeuvre params / tolerances
         self.pos_tol = float(self.declare_parameter('pos_tol', 0.4).get_parameter_value().double_value)
@@ -169,7 +169,7 @@ class SimpleLeader(Node):
         while rclpy.ok():
             rclpy.spin_once(self, timeout_sec=0.0)
             self._hold_here()
-            if (self.rel_alt2 >= (self.target_alt - self.alt_thresh)) and (self.rel_alt3 >= (self.target_alt - self.alt_thresh)):
+            if (self.rel_alt2 >= (self.target_alt - self.alt_thresh)) or (self.rel_alt3 >= (self.target_alt - self.alt_thresh)):
                 break
             time.sleep(dt)
 
