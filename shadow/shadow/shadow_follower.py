@@ -135,7 +135,7 @@ class PointShadowFollower(Node):
             latF, lonF, altF = self.follower_home_gps
             # Offset that expresses the leader-home origin in the follower ENU frame:
             dE, dN, dU = enu_offset_between(latF, lonF, altF, latL, lonL, altL)
-            self.home_offset_enu = (dE, dN, dU)
+            self.home_offset_enu = (dE, dN, 0.0)
             self.get_logger().info(f'Computed home ENU offset (leader->follower frame): dE={dE:.2f}, dN={dN:.2f}, dU={dU:.2f}')
 
     def _set_mode(self, mode: str) -> bool:
@@ -178,19 +178,21 @@ class PointShadowFollower(Node):
         xE = float(self.leader_pose.pose.position.x)
         yN = float(self.leader_pose.pose.position.y)
         zU = float(self.leader_pose.pose.position.z)
+        zU_leader_local = float(self.leader_pose.pose.position.z)
 
         # Optional desired spacing relative to leader (in ENU, meters)
         xE += self.offset_e
         yN += self.offset_n
-        zU += self.offset_u
+        # zU += self.offset_u
 
         dE_home, dN_home, dU_home = self.home_offset_enu
 
         # Rebase into follower frame
         xE_f = xE + dE_home
         yN_f = yN + dN_home
-        zU_f = zU + dU_home
-
+        # zU_f = zU + dU_home
+        zU_f = zU_leader_local + self.offset_u
+        
         sp = PositionTarget()
         sp.header.stamp = self.get_clock().now().to_msg()
         # NOTE: MAVROS expects ENU on ROS side; keep LOCAL_NED constant for MAVLink framing
@@ -204,6 +206,7 @@ class PointShadowFollower(Node):
         sp.position.x = xE_f
         sp.position.y = yN_f
         sp.position.z = zU_f
+        
 
         self.sp_pub.publish(sp)
 

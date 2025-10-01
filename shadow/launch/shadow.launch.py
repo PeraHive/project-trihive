@@ -24,7 +24,7 @@ def generate_launch_description():
                 'follower_ns': '/uav2',
                 'leader_ns': '/uav1',
                 'target_alt': 5.0,
-                'offset_e': 4.0,   # East (+x)
+                'offset_e': 3.0,   # East (+x)
                 'offset_n': 0.0,  # North (+y); adjust sign for your formation
                 'offset_u': 0.0,   # Up (+z)
                 'sp_rate_hz': 12.0,
@@ -41,7 +41,7 @@ def generate_launch_description():
                 'follower_ns': '/uav3',
                 'leader_ns': '/uav1',
                 'target_alt': 5.0,
-                'offset_e': -4.0,
+                'offset_e': -3.0,
                 'offset_n': 0.0,
                 'offset_u': 0.0,
                 'sp_rate_hz': 12.0,

@@ -103,7 +103,7 @@ cd ws
 colcon build && source install/setup.bash
 
 # Start MAVROS for 2 UAVs
-ros2 launch perahive_mavros mavros.launch.py uavs:="1,2"
+ros2 launch perahive_mavros mavros.launch.py uavs:="1,2,3"
 
 # Run simulator with 2 UAVs
 ros2 launch perahive_mavros simulator.launch.py uavs:="1,2" base_port:=14550 bind_ip:=127.0.0.1
@@ -114,6 +114,7 @@ ros2 launch shadow shadow.launch.py
 # (Optional) View data in Foxglove
 ros2 launch foxglove_bridge foxglove_bridge_launch.xml
 ```
+
 
 ## Run Simulation
 
